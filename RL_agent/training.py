@@ -31,7 +31,7 @@ class EnhancedDQNAgent(DQNAgent):
         else:
             self.training_history['draws'] += 1
 
-def train_agent(episodes=500, batch_size=32, save_interval=50):
+def train_agent(episodes=1500, batch_size=64, save_interval=50):
     env = TicTacToe()
     state_size = 9
     action_size = 9
@@ -110,32 +110,4 @@ def train_agent(episodes=500, batch_size=32, save_interval=50):
 # Enhanced training with visualization
 if __name__ == "__main__":
     trained_agent = train_agent(episodes=500, batch_size=64)
-    
-    # # Generate training report
-    # import matplotlib.pyplot as plt
-    
-    # # Load final stats
-    # with open("training_data/final_stats.json") as f:
-    #     stats = json.load(f)
-    
-    # # Plot training progress
-    # plt.figure(figsize=(12, 4))
-    
-    # # Epsilon decay
-    # plt.subplot(1, 2, 1)
-    # plt.plot(stats['episodes'], stats['epsilon'])
-    # plt.title('Epsilon Decay')
-    # plt.xlabel('Episode')
-    # plt.ylabel('Epsilon')
-    
-    # # Win rate
-    # win_rates = [stats['wins']/(i+1) for i in range(len(stats['episodes']))]
-    # plt.subplot(1, 2, 2)
-    # plt.plot(stats['episodes'], win_rates)
-    # plt.title('Win Rate Progress')
-    # plt.xlabel('Episode')
-    # plt.ylabel('Win Rate')
-    
-    # plt.tight_layout()
-    # plt.savefig('training_data/training_progress.png')
-    # plt.show()
+        
