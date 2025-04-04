@@ -9,8 +9,8 @@ class TicTacToe:
         self.reset()
 
     def reset(self):
-        """Reset the board to start a new game."""
-        self.board = np.zeros((3, 3), dtype=int)
+        """Reset the board for a new game."""
+        self.board = np.zeros((3, 3), dtype=float)  # Using float for neural network input normalization
         self.current_player = 1  # Player 1 = X, Player -1 = O
         return self.board.flatten()
 
@@ -24,7 +24,7 @@ class TicTacToe:
         return False
 
     def get_available_actions(self):
-        """Return a list of available positions."""
+        """Return a list of available positions as (row, col) tuples."""
         return [(i, j) for i in range(3) for j in range(3) if self.board[i, j] == 0]
 
     def step(self, action):
@@ -40,17 +40,17 @@ class TicTacToe:
         
         # Check draw condition
         if not self.get_available_actions():
-            return self.board.flatten(), 0, True  # Draw
+            return self.board.flatten(), 0.5, True  # Draw reward (slightly positive to encourage avoiding losses)
         
         # Switch player and continue
         self.current_player *= -1
-        return self.board.flatten(), 0, False
+        return self.board.flatten(), -0.01, False  # Small penalty to encourage faster wins
 
     def render(self):
         """Print the board state."""
         symbols = {0: '.', 1: 'X', -1: 'O'}
         for row in self.board:
-            print(' '.join(symbols[cell] for cell in row))
+            print(' '.join(symbols[int(cell)] for cell in row))
         print()
 
 class DQNAgent:
@@ -72,7 +72,7 @@ class DQNAgent:
             keras.layers.Dense(24, activation='relu'),
             keras.layers.Dense(self.action_size, activation='linear')
         ])
-        model.compile(loss=keras.losses.MeanSquaredError(),  # Use the explicit loss function
+        model.compile(loss=keras.losses.MeanSquaredError(),  
                       optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate))
         return model
     
@@ -80,22 +80,36 @@ class DQNAgent:
         """Store experiences in memory for replay."""
         self.memory.append((state, action, reward, next_state, done))
     
-    def act(self, state):
-        """Choose an action using epsilon-greedy policy."""
+    def act(self, state, available_actions):
+        """Choose an action using an epsilon-greedy policy with valid moves."""
         if np.random.rand() <= self.epsilon:
-            return random.choice(range(self.action_size))
-        q_values = self.model.predict(state.reshape(1, -1), verbose=0)
-        return np.argmax(q_values[0])
+            return random.choice(available_actions)
+        
+        q_values = self.model.predict(state.reshape(1, -1), verbose=0)[0]
+        
+        # Filter only available moves
+        valid_q_values = {action: q_values[action[0] * 3 + action[1]] for action in available_actions}
+        return max(valid_q_values, key=valid_q_values.get)  # Select action with highest Q-value
     
     def replay(self, batch_size):
         """Train the model using experience replay."""
-        minibatch = random.sample(self.memory, min(len(self.memory), batch_size))
+        if len(self.memory) < batch_size:
+            return
+        
+        minibatch = random.sample(self.memory, batch_size)
+        states, targets = [], []
+
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
                 target += self.gamma * np.amax(self.model.predict(next_state.reshape(1, -1), verbose=0)[0])
             target_f = self.model.predict(state.reshape(1, -1), verbose=0)
-            target_f[0][action] = target
-            self.model.fit(state.reshape(1, -1), target_f, epochs=1, verbose=0)
+            target_f[0][action[0] * 3 + action[1]] = target  # Convert action (row, col) to single index
+            
+            states.append(state)
+            targets.append(target_f[0])
+
+        self.model.fit(np.array(states), np.array(targets), epochs=1, verbose=0, batch_size=batch_size)
+
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay

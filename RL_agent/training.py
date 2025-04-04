@@ -1,7 +1,7 @@
 import numpy as np
 import json
 import os
-from collections import deque
+import random
 from model import TicTacToe, DQNAgent
 from tensorflow.keras.models import load_model
 
@@ -31,7 +31,7 @@ class EnhancedDQNAgent(DQNAgent):
         else:
             self.training_history['draws'] += 1
 
-def train_agent(episodes=1500, batch_size=64, save_interval=50):
+def train_agent(episodes=500, batch_size=64, save_interval=50):
     env = TicTacToe()
     state_size = 9
     action_size = 9
@@ -46,19 +46,20 @@ def train_agent(episodes=1500, batch_size=64, save_interval=50):
         total_reward = 0
         
         while not done:
-            action = agent.act(state)
             available_actions = env.get_available_actions()
-            available_indices = [a[0]*3 + a[1] for a in available_actions]
+            action = agent.act(state, available_actions)  # Pass available actions
             
-            # Convert action to valid move
-            if action >= len(available_indices):
-                action = np.random.choice(range(len(available_indices)))
-            action_pos = available_actions[action]
+            action_pos = action  # `act()` already selects a valid (row, col) action
             
             next_state, reward, done = env.step(action_pos)
-            agent.remember(state, available_indices[action], reward, next_state, done)
+            agent.remember(state, action_pos, reward, next_state, done)
             state = next_state
             total_reward += reward
+            
+            # Opponent move (Random)
+            if not done:
+                opponent_action = random.choice(env.get_available_actions())
+                next_state, _, done = env.step(opponent_action)
         
         # Record episode results
         if env.is_winner(1):  # Agent won
@@ -110,4 +111,3 @@ def train_agent(episodes=1500, batch_size=64, save_interval=50):
 # Enhanced training with visualization
 if __name__ == "__main__":
     trained_agent = train_agent(episodes=500, batch_size=64)
-        
